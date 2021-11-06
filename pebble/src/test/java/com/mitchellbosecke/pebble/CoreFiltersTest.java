@@ -136,6 +136,27 @@ class CoreFiltersTest {
   }
 
   @Test
+  void testDateWithAlterDate() throws ParseException, PebbleException, IOException {
+    PebbleEngine pebble = new PebbleEngine.Builder().loader(new StringLoader())
+            .strictVariables(false)
+            .defaultLocale(Locale.ENGLISH).build();
+
+    String source = "{{ realDate | date('MM/dd/yyyy', alterTime = 'P7D') }}{{ realDate | date(format, alterTime = '-P7D') }}{{ stringDate | date('yyyy/MMMM/d','yyyy-MMMM-d', alterTime = 'P7D') }}";
+
+    PebbleTemplate template = pebble.getTemplate(source);
+    Map<String, Object> context = new HashMap<>();
+    DateFormat format = new SimpleDateFormat("yyyy-MMMM-d", Locale.ENGLISH);
+    Date realDate = format.parse("2012-July-01");
+    context.put("realDate", realDate);
+    context.put("stringDate", format.format(realDate));
+    context.put("format", "yyyy-MMMM-d");
+
+    Writer writer = new StringWriter();
+    template.evaluate(writer, context);
+    assertEquals("07/08/20122012-June-242012/July/8", writer.toString());
+  }
+
+  @Test
   void testDateJava8() throws PebbleException, IOException {
     PebbleEngine pebble = new PebbleEngine
         .Builder()
@@ -171,6 +192,41 @@ class CoreFiltersTest {
         writer.toString());
   }
 
+  @Test
+  void testDateJava8WithAlterTime() throws PebbleException, IOException {
+    PebbleEngine pebble = new PebbleEngine
+            .Builder()
+            .loader(new StringLoader())
+            .strictVariables(false)
+            .defaultLocale(Locale.ENGLISH)
+            .build();
+
+    final LocalDateTime localDateTime = LocalDateTime.of(2017, 6, 10, 13, 30, 35, 0);
+    final ZonedDateTime zonedDateTime = ZonedDateTime.of(localDateTime, ZoneId.of("GMT+0100"));
+    final LocalDate localDate = localDateTime.toLocalDate();
+    final LocalTime localTime = localDateTime.toLocalTime();
+
+    StringBuilder source = new StringBuilder();
+    source
+            .append("{{ localDateTime | date(alterTime = 'P0DT1M') }}")
+            .append("{{ localDateTime | date('yyyy-MM-dd HH:mm:ss', alterTime = 'P7D') }}")
+            .append("{{ zonedDateTime | date('yyyy-MM-dd HH:mm:ssXXX', alterTime = 'P7D') }}")
+            .append("{{ localDate | date('yyyy-MM-dd', alterTime = 'P7D') }}")
+            .append("{{ localTime | date('HH:mm:ss', alterTime = 'P0DT1H') }}");
+
+    PebbleTemplate template = pebble.getTemplate(source.toString());
+    Map<String, Object> context = new HashMap<>();
+    context.put("localDateTime", localDateTime);
+    context.put("zonedDateTime", zonedDateTime);
+    context.put("localDate", localDate);
+    context.put("localTime", localTime);
+
+    Writer writer = new StringWriter();
+    template.evaluate(writer, context);
+    assertEquals(
+            "2017-06-10T13:31:352017-06-17 13:30:352017-06-17 13:30:35+01:002017-06-1714:30:35",
+            writer.toString());
+  }
 
   @Test
   void testDateWithNamedArguments() throws ParseException, PebbleException, IOException {
